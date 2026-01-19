@@ -29,3 +29,8 @@ model HealthEntry {
   userId String
   user   User   @relation("UserEntries", fields: [userId], references: [id])
 }
+
+model Symptom {
+  id   Int    @id @default(autoincrement())
+  name String @unique
+}
