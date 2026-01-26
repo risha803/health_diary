@@ -1,28 +1,37 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const q = searchParams.get('q') || '';
+  const trimmedQ = q.trim();
+
   const symptoms = await prisma.symptom.findMany({
-    where: { name: { startsWith: q, mode: 'insensitive' } },
+    where: { name: { startsWith: trimmedQ, mode: 'insensitive' } },
     take: 10,
   });
-  return NextResponse.json(symptoms);
+
+  return NextResponse.json(symptoms.map(s => s.name));
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.json();
-  const { name } = body;
-  if (!name) return NextResponse.json({ error: 'Name required' }, { status: 400 });
+  try {
+    const body = await req.json();
+    const name = body.name?.trim();
 
-  const symptom = await prisma.symptom.upsert({
-    where: { name },
-    update: {},
-    create: { name },
-  });
+    if (!name) {
+      return NextResponse.json({ error: 'Name required' }, { status: 400 });
+    }
 
-  return NextResponse.json(symptom);
+    const symptom = await prisma.symptom.upsert({
+      where: { name },
+      update: {},
+      create: { name },
+    });
+
+    return NextResponse.json(symptom);
+  } catch (err) {
+    console.error('Ошибка при сохранении симптома:', err);
+    return NextResponse.json({ error: 'Failed to save symptom' }, { status: 500 });
+  }
 }
-
-//route по добавлению новых симптомов в БД

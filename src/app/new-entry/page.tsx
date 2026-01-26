@@ -1,153 +1,103 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { entryClientSchema, EntryFormData } from '@/lib/validators/entry.client';
+import { useState } from 'react';
 
 export default function NewEntryPage() {
-  const [feeling, setFeeling] = useState<number>(3);
-  const [temperature, setTemperature] = useState<string>('');
-  const [headache, setHeadache] = useState<boolean>(false);
-  const [symptoms, setSymptoms] = useState<string>('');
-  const [pulse, setPulse] = useState<string>('');
-  const [pressureSystolic, setPressureSystolic] = useState<string>('');
-  const [pressureDiastolic, setPressureDiastolic] = useState<string>('');
-
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const { register, handleSubmit, formState: { errors, isSubmitting }, reset, setValue } = useForm<EntryFormData>({
+    resolver: zodResolver(entryClientSchema),
+    defaultValues: { feeling: 3, headache: false },
+  });
 
-    // автокомплит с бд
-  async function fetchSuggestions(text: string) {
-    if (!text) {
-      setSuggestions([]);
-      return;
-    }
-    const res = await fetch(`/api/symptoms?q=${encodeURIComponent(text)}`);
+  async function fetchSuggestions(q: string) {
+    if (!q) return setSuggestions([]);
+    const res = await fetch(`/api/symptoms?q=${encodeURIComponent(q)}`);
     const data = await res.json();
     setSuggestions(data.map((s: { name: string }) => s.name));
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function onSubmit(data: EntryFormData) {
+    // создаем запись
+    const res = await fetch('/api/entries', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...data, userId: 'demo-user-id', date: new Date() }),
+    });
+    if (!res.ok) {
+      console.error(await res.json());
+      return;
+    }
 
-    if (feeling < 1 || feeling > 5) return alert('Самочувствие должно быть от 1 до 5');
-    if (temperature && (Number(temperature) < 34 || Number(temperature) > 42))
-      return alert('Температура должна быть от 34 до 42°C');
-    if (pulse && (Number(pulse) < 30 || Number(pulse) > 200)) return alert('Пульс должен быть от 30 до 200');
-    if (pressureSystolic && (Number(pressureSystolic) < 80 || Number(pressureSystolic) > 250))
-      return alert('Систолическое давление должно быть от 80 до 250');
-    if (pressureDiastolic && (Number(pressureDiastolic) < 50 || Number(pressureDiastolic) > 180))
-      return alert('Диастолическое давление должно быть от 50 до 180');
-    if (symptoms) {
+    if (data.symptoms) {
       await fetch('/api/symptoms', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: symptoms }),
+        body: JSON.stringify({ name: data.symptoms }),
       });
     }
 
-    try {
-      //Делаем новую запись
-      await fetch('/api/entries', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          date: new Date(),
-          feeling,
-          temperature: temperature ? Number(temperature) : null,
-          headache,
-          symptoms,
-          pulse: pulse ? Number(pulse) : null,
-          pressureSystolic: pressureSystolic ? Number(pressureSystolic) : null,
-          pressureDiastolic: pressureDiastolic ? Number(pressureDiastolic) : null,
-        }),
-      });
-
-      //Добавляю новый симптом в бд
-      if (symptoms) {
-        await fetch('/api/symptoms', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: symptoms }),
-        });
-      }
-
-      alert('Запись сохранена');
-
-      //Reset формы
-      setFeeling(3);
-      setTemperature('');
-      setHeadache(false);
-      setSymptoms('');
-      setPulse('');
-      setPressureSystolic('');
-      setPressureDiastolic('');
-      setSuggestions([]);
-    } catch (err) {
-      console.error(err);
-      alert('Ошибка при сохранении записи');
-    }
+    reset();
+    setSuggestions([]);
   }
 
   return (
-    <form onSubmit={handleSubmit} style={{ padding: 24 }}>
+    <form onSubmit={handleSubmit(onSubmit)} style={{ padding: 24, maxWidth: 400 }}>
       <h1>Новая запись</h1>
 
       <label>
-        Самочувствие (1–5)
-        <input type="number" min={1} max={5} value={feeling} onChange={(e) => setFeeling(+e.target.value)} />
+        Самочувствие
+        <input type="number" {...register('feeling', { valueAsNumber: true })} />
+        {errors.feeling && <p>{errors.feeling.message}</p>}
       </label>
 
       <label>
         Температура
-        <input value={temperature} onChange={(e) => setTemperature(e.target.value)} />
-      </label>
-
-      <label>
-        Пульс
-        <input type="number" min={30} max={200} value={pulse} onChange={(e) => setPulse(e.target.value)} />
-      </label>
-
-      <label>
-        Давление (Систолическое / Диастолическое)
-        <input type="number" min={80} max={250} value={pressureSystolic} onChange={(e) => setPressureSystolic(e.target.value)} />
-        <input type="number" min={50} max={180} value={pressureDiastolic} onChange={(e) => setPressureDiastolic(e.target.value)} />
+        <input type="number" step="0.1" {...register('temperature', { valueAsNumber: true })} />
+        {errors.temperature && <p>{errors.temperature.message}</p>}
       </label>
 
       <label>
         Головная боль
-        <input type="checkbox" checked={headache} onChange={(e) => setHeadache(e.target.checked)} />
+        <input type="checkbox" {...register('headache')} />
       </label>
 
       <label style={{ position: 'relative' }}>
         Симптомы
         <input
-          value={symptoms}
+          type="text"
+          {...register('symptoms')}
           onChange={e => {
-            setSymptoms(e.target.value);
+            setValue('symptoms', e.target.value);
             fetchSuggestions(e.target.value);
           }}
           autoComplete="off"
         />
         {suggestions.length > 0 && (
-          <ul
-            style={{
-              position: 'absolute',
-              top: '100%',
-              left: 0,
-              right: 0,
-              border: '1px solid #ccc',
-              backgroundColor: '#fff',
-              margin: 0,
-              padding: 4,
-              listStyle: 'none',
-              zIndex: 10,
-              maxHeight: 100,
-              overflowY: 'auto',
-            }}
-          >
+          <ul style={{
+            position: 'absolute',
+            top: '100%',
+            left: 0,
+            right: 0,
+            border: '1px solid #ccc',
+            backgroundColor: '#fff',
+            margin: 0,
+            padding: 4,
+            listStyle: 'none',
+            zIndex: 10,
+            maxHeight: 120,
+            overflowY: 'auto',
+          }}>
             {suggestions.map(s => (
               <li
                 key={s}
                 style={{ padding: 4, cursor: 'pointer' }}
-                onClick={() => setSymptoms(s)}
+                onClick={() => {
+                  setValue('symptoms', s);
+                  setSuggestions([]);
+                }}
               >
                 {s}
               </li>
@@ -156,7 +106,7 @@ export default function NewEntryPage() {
         )}
       </label>
 
-      <button type="submit">Сохранить</button>
+      <button disabled={isSubmitting}>Сохранить</button>
     </form>
   );
 }

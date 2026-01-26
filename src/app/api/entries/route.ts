@@ -1,48 +1,43 @@
 import { prisma } from '@/lib/prisma'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { entryServerSchema } from '@/lib/validators/entry.server'
 
-export async function GET() {
-  try {
-    const entries = await prisma.healthEntry.findMany({
-      orderBy: { date: 'desc' },
-      include: { user: true },
-    })
-    return NextResponse.json(entries)
-  } catch (err) {
-    console.error('GET /api/entries error:', err)
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+export async function POST(req: NextRequest) {
+  const body = await req.json()
+  const parsed = entryServerSchema.safeParse(body)
+
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.format() }, { status: 400 })
   }
-}
 
-export async function POST(req: Request) {
+  const { userId, symptoms, ...entryData } = parsed.data
+
   try {
-    const body = await req.json()
-
-    // Фиктивный юзер
-    const user = await prisma.user.upsert({
-      where: { id: 'test-user-1' },
+    await prisma.user.upsert({
+      where: { id: userId },
       update: {},
-      create: { id: 'test-user-1', height: body.height || null, weight: body.weight || null },
+      create: { id: userId, height: 170, weight: 65 },
     })
+
+    if (symptoms?.trim()) {
+      await prisma.symptom.upsert({
+        where: { name: symptoms.trim() },
+        update: {},
+        create: { name: symptoms.trim() },
+      })
+    }
 
     const entry = await prisma.healthEntry.create({
       data: {
-        date: new Date(body.date),
-        feeling: body.feeling,
-        temperature: body.temperature,
-        pressureSystolic: body.pressureSystolic,
-        pressureDiastolic: body.pressureDiastolic,
-        pulse: body.pulse,
-        headache: body.headache,
-        symptoms: body.symptoms,
-        userId: user.id,
+        userId,
+        ...entryData,
+        symptoms: symptoms?.trim() || null,
       },
     })
 
-    return NextResponse.json(entry, { status: 201 })
+    return NextResponse.json(entry)
   } catch (err) {
-    console.error('POST /api/entries error:', err)
+    console.error('Ошибка при создании записи:', err)
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
   }
 }
-

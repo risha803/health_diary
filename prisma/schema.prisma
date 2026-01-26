@@ -26,6 +26,9 @@ model HealthEntry {
   headache          Boolean?
   symptoms          String?
 
+  height            Int?
+  weight            Int?
+
   userId String
   user   User   @relation("UserEntries", fields: [userId], references: [id])
 }
