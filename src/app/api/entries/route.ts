@@ -2,6 +2,15 @@ import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
 import { entryServerSchema } from '@/lib/validators/entry.server'
 
+export async function GET() {
+  const entries = await prisma.healthEntry.findMany({
+    where: { userId: 'demo-user-id' },
+    orderBy: { date: 'desc' },
+  })
+
+  return NextResponse.json(entries)
+}
+
 export async function POST(req: NextRequest) {
   const body = await req.json()
   const parsed = entryServerSchema.safeParse(body)
