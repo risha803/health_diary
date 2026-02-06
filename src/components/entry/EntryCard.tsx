@@ -1,12 +1,13 @@
-import { HealthEntryUI } from "./types"
+import { Card } from '../ui/Card'
+import { HealthEntryUI } from './types'
 
 type Props = {
   entry: HealthEntryUI
 }
 
-export function EntryCard({entry}: Props) {
+export function EntryCard({ entry }: Props) {
   return (
-    <div className="border border-gray-300 rounded-lg p-4 mb-4 shadow-sm hover:shadow-md transition-shadow">
+    <Card className="mb-4">
       <div className="text-sm text-gray-500">
         {new Date(entry.date).toLocaleDateString()}
       </div>
@@ -23,7 +24,8 @@ export function EntryCard({entry}: Props) {
 
       {entry.pressureSystolic && entry.pressureDiastolic && (
         <div>
-          <strong>Давление:</strong> {entry.pressureSystolic}/{entry.pressureDiastolic}
+          <strong>Давление:</strong>{' '}
+          {entry.pressureSystolic}/{entry.pressureDiastolic}
         </div>
       )}
 
@@ -35,7 +37,8 @@ export function EntryCard({entry}: Props) {
 
       {entry.headache !== null && (
         <div>
-          <strong>Головная боль:</strong> {entry.headache ? 'Да' : 'Нет'}
+          <strong>Головная боль:</strong>{' '}
+          {entry.headache ? 'Да' : 'Нет'}
         </div>
       )}
 
@@ -44,6 +47,6 @@ export function EntryCard({entry}: Props) {
           <strong>Симптомы:</strong> {entry.symptoms}
         </div>
       )}
-    </div>
+    </Card>
   )
 }
